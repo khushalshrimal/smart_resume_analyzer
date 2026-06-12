@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Resume | Smart Resume Analyzer</title>
+
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+
+</head>
+
+<body class="bg-slate-950 text-white min-h-screen overflow-x-hidden">
+
+
+<!-- Background Effects -->
+<div class="fixed top-0 left-0 w-96 h-96 bg-purple-600 rounded-full blur-[180px] opacity-20"></div>
+<div class="fixed bottom-0 right-0 w-96 h-96 bg-blue-600 rounded-full blur-[180px] opacity-20"></div>
+
+<!-- Navbar -->
+<nav class="flex justify-between items-center px-8 md:px-16 py-6 border-b border-white/10">
+
+    <a href="/" class="text-2xl font-bold">
+        Smart Resume Analyzer
+    </a>
+
+    <a href="/"
+       class="px-5 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition">
+        Home
+    </a>
+
+</nav>
+
+<!-- Main Section -->
+<section class="flex items-center justify-center min-h-[85vh] px-6">
+
+    <div class="w-full max-w-4xl">
+
+        <!-- Heading -->
+        <div class="text-center">
+
+            <span class="px-4 py-2 rounded-full border border-purple-500/30 text-purple-300">
+                Resume Analysis Portal
+            </span>
+
+            <h1 class="text-5xl md:text-6xl font-bold mt-6">
+                Upload Your Resume
+            </h1>
+
+            <p class="text-gray-400 mt-5 text-lg max-w-2xl mx-auto">
+                Upload your resume and receive instant ATS scoring,
+                skill detection, career insights and personalized
+                recommendations.
+            </p>
+
+        </div>
+
+        <!-- Upload Card -->
+        <div class="mt-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12">
+
+            <form action="/upload" method="POST" enctype="multipart/form-data">
+
+                <label class="border-2 border-dashed border-purple-500/40 rounded-3xl h-80 flex flex-col justify-center items-center cursor-pointer hover:border-purple-400 transition">
+
+                    <div class="text-7xl mb-5">
+                        📄
+                    </div>
+
+                    <h2 class="text-2xl font-semibold">
+                        Choose Your Resume
+                    </h2>
+
+                    <p class="text-gray-400 mt-3">
+                        Click here to browse files
+                    </p>
+
+                    <p class="text-sm text-gray-500 mt-4">
+                        Supported Formats: PDF, DOC, DOCX
+                    </p>
+
+                    <input
+                        type="file"
+                        name="resume"
+                        accept=".pdf,.doc,.docx"
+                        class="block mt-4"
+                        required>
+
+                </label>
+
+                <button
+                    type="submit"
+                    class="w-full mt-8 py-4 rounded-xl text-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:scale-[1.02] transition">
+
+                    Analyze Resume
+
+                </button>
+
+            </form>
+
+        </div>
+
+        <!-- Feature Cards -->
+        <div class="grid md:grid-cols-3 gap-6 mt-10">
+
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <h3 class="font-semibold text-lg mb-2">
+                    ATS Score
+                </h3>
+
+                <p class="text-gray-400 text-sm">
+                    Evaluate your resume using ATS-style analysis.
+                </p>
+            </div>
+
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <h3 class="font-semibold text-lg mb-2">
+                    Skill Detection
+                </h3>
+
+                <p class="text-gray-400 text-sm">
+                    Automatically identify technical skills.
+                </p>
+            </div>
+
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <h3 class="font-semibold text-lg mb-2">
+                    Recommendations
+                </h3>
+
+                <p class="text-gray-400 text-sm">
+                    Get suggestions to improve your resume.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+</body>
+</html>
