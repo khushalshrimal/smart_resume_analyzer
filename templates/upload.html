@@ -61,11 +61,24 @@
         <div class="mt-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12">
 
             <form action="/upload" method="POST" enctype="multipart/form-data">
+                <select
+                    name="job_role"
+                    required
+                    class="w-full p-4 mb-6 rounded-xl bg-slate-900 border border-purple-500/30 text-white focus:outline-none focus:border-purple-500"
+                >
+                    <option value="">Select Target Job Role</option>
+
+                    {% for role in job_roles %}
+                        <option value="{{ role }}">
+                            {{ role }}
+                        </option>
+                    {% endfor %}
+                </select>
 
                 <label class="border-2 border-dashed border-purple-500/40 rounded-3xl h-80 flex flex-col justify-center items-center cursor-pointer hover:border-purple-400 transition">
 
-                    <div class="text-7xl mb-5">
-                        📄
+                    <div class="text-5xl font-bold mb-5 text-purple-300">
+                        PDF
                     </div>
 
                     <h2 class="text-2xl font-semibold">
@@ -77,13 +90,13 @@
                     </p>
 
                     <p class="text-sm text-gray-500 mt-4">
-                        Supported Formats: PDF, DOC, DOCX
+                        Supported Format: PDF
                     </p>
 
                     <input
                         type="file"
                         name="resume"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf"
                         class="block mt-4"
                         required>
 
