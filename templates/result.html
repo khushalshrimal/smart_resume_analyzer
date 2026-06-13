@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,36 +21,36 @@
         <p class="text-gray-400 mt-2">AI powered ATS evaluation report</p>
     </div>
 
-    <!-- 🎯 CIRCULAR SCORE (ANIMATED STYLE) -->
+    <!-- CIRCLE SCORE -->
     <div class="flex justify-center mb-10">
 
         <div class="relative w-52 h-52">
 
-            <!-- Background Circle -->
             <svg class="w-52 h-52 transform -rotate-90">
+
+                <!-- Background Circle -->
                 <circle cx="104" cy="104" r="85"
                     stroke="rgba(255,255,255,0.1)"
                     stroke-width="12"
                     fill="none"/>
-            </svg>
 
-            <!-- Progress Circle -->
-            <svg class="w-52 h-52 absolute top-0 left-0 transform -rotate-90">
+                <!-- Progress Circle -->
                 <circle id="progressCircle"
                     cx="104" cy="104" r="85"
                     stroke="url(#grad)"
                     stroke-width="12"
                     fill="none"
                     stroke-linecap="round"
-                    stroke-dasharray="534"
                 />
 
+                <!-- Gradient -->
                 <defs>
                     <linearGradient id="grad">
                         <stop offset="0%" stop-color="#a855f7"/>
                         <stop offset="100%" stop-color="#3b82f6"/>
                     </linearGradient>
                 </defs>
+
             </svg>
 
             <!-- Center Text -->
@@ -64,6 +65,13 @@
                 </h1>
 
                 <p class="text-gray-400 text-sm">ATS Score</p>
+
+                <p class="text-gray-500 text-xs mt-2">
+                    {{ matched_skills|length }} /
+                    {{ matched_skills|length + missing_skills|length }}
+                    Skills Matched
+                </p>
+
             </div>
 
         </div>
@@ -72,89 +80,183 @@
     <!-- ROLE -->
     <div class="text-center mb-6">
         <p class="text-gray-400">Target Role</p>
-        <h2 class="text-2xl font-semibold text-white">{{ selected_role }}</h2>
+        <h2 class="text-2xl font-semibold text-white">
+            {{ selected_role }}
+        </h2>
     </div>
 
-    <!-- 💡 AI INSIGHT BOX -->
+    <!-- ATS BADGE -->
+    <div class="text-center mb-8">
+
+        {% if score >= 80 %}
+            <span class="bg-green-500/20 text-green-400 px-4 py-2 rounded-full">
+                Excellent Match
+            </span>
+
+        {% elif score >= 60 %}
+            <span class="bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-full">
+                Good Match
+            </span>
+
+        {% else %}
+            <span class="bg-red-500/20 text-red-400 px-4 py-2 rounded-full">
+                Needs Improvement
+            </span>
+        {% endif %}
+
+    </div>
+
+    <!-- AI INSIGHT -->
     <div class="mb-10 text-center">
 
         <div class="bg-white/5 border border-white/10 rounded-2xl p-6">
 
-            <h2 class="text-purple-400 font-semibold mb-2">AI Insight</h2>
+            <h2 class="text-purple-400 font-semibold mb-2">
+                AI Insight
+            </h2>
 
             {% if score >= 75 %}
-                <p class="text-green-300">Excellent resume! Strong match for this role 🚀</p>
+                <p class="text-green-300">
+                    Excellent resume! Strong match for this role 🚀
+                </p>
 
             {% elif score >= 50 %}
-                <p class="text-yellow-300">Good resume, but needs improvement ⚡</p>
+                <p class="text-yellow-300">
+                    Good resume, but needs improvement ⚡
+                </p>
 
             {% else %}
-                <p class="text-red-300">Resume needs major improvement 📉</p>
+                <p class="text-red-300">
+                    Resume needs major improvement 📉
+                </p>
             {% endif %}
 
         </div>
     </div>
 
-    <!-- SKILLS SECTION -->
+    <!-- SKILLS -->
     <div class="grid md:grid-cols-2 gap-6">
 
-        <!-- MATCHED SKILLS -->
+        <!-- MATCHED -->
         <div class="bg-green-500/10 border border-green-500/30 p-6 rounded-2xl">
+
             <h2 class="text-green-400 font-bold text-lg mb-3">
                 Matched Skills
             </h2>
 
             {% if matched_skills %}
+
                 {% for skill in matched_skills %}
+
                     <span class="inline-block bg-green-500/20 px-3 py-1 rounded-full mr-2 mb-2">
                         {{ skill }}
                     </span>
+
                 {% endfor %}
+
             {% else %}
-                <p class="text-gray-400">No matched skills found</p>
+
+                <p class="text-gray-400">
+                    No matched skills found
+                </p>
+
             {% endif %}
+
         </div>
 
-        <!-- MISSING SKILLS -->
+        <!-- MISSING -->
         <div class="bg-red-500/10 border border-red-500/30 p-6 rounded-2xl">
+
             <h2 class="text-red-400 font-bold text-lg mb-3">
                 Missing Skills
             </h2>
 
             {% if missing_skills %}
+
                 {% for skill in missing_skills %}
+
                     <span class="inline-block bg-red-500/20 px-3 py-1 rounded-full mr-2 mb-2">
                         {{ skill }}
                     </span>
+
                 {% endfor %}
+
             {% else %}
-                <p class="text-gray-400">No missing skills 🎉</p>
+
+                <p class="text-gray-400">
+                    No missing skills 🎉
+                </p>
+
             {% endif %}
+
         </div>
 
     </div>
 
-    <!-- BUTTON -->
-    <div class="text-center mt-10">
+    <!-- RECOMMENDATIONS -->
+    <div class="mt-8 bg-white/5 border border-white/10 rounded-2xl p-6">
+
+        <h2 class="text-purple-400 font-bold text-lg mb-4">
+            Recommendations
+        </h2>
+
+        {% if missing_skills %}
+
+            <ul class="space-y-2">
+
+                {% for skill in missing_skills[:5] %}
+
+                <li class="text-gray-300">
+                    ✅ Learn {{ skill }}
+                </li>
+
+                {% endfor %}
+
+            </ul>
+
+        {% else %}
+
+            <p class="text-green-400">
+                Excellent! No major missing skills found.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="text-center mt-10 flex flex-wrap gap-4 justify-center">
+
         <a href="/upload"
            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl font-semibold hover:scale-105 transition">
             Analyze Another Resume
         </a>
+
+        <a href="/download-report"
+           class="px-6 py-3 bg-green-600 rounded-xl font-semibold hover:scale-105 transition">
+            Download Report
+        </a>
+
     </div>
 
 </div>
 
-<!-- 🚀 ANIMATION SCRIPT -->
+<!-- ANIMATION SCRIPT -->
 <script>
-    let score = {{ score }};
+
+    let score = {{ score | tojson }};
+
     let circle = document.getElementById("progressCircle");
 
     let radius = 85;
     let circumference = 2 * Math.PI * radius;
 
     circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = circumference;
 
-    let offset = circumference - (score / 100) * circumference;
+    let offset =
+        circumference -
+        (score / 100) * circumference;
 
     let current = circumference;
 
@@ -163,14 +265,20 @@
     let animate = setInterval(() => {
 
         if (current <= offset) {
+
             clearInterval(animate);
+
         } else {
+
             current -= speed;
+
             circle.style.strokeDashoffset = current;
         }
 
     }, 10);
+
 </script>
 
 </body>
 </html>
+```
