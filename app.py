@@ -3,8 +3,38 @@ from PyPDF2 import PdfReader
 from job_roles import job_roles
 from werkzeug.utils import secure_filename
 import os
+import re
+import sqlite3
+from flask import send_file
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
+def create_table():
+
+    conn = sqlite3.connect("resume_reports.db")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS reports (
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        job_role TEXT,
+
+        ats_score INTEGER,
+
+        matched_skills TEXT,
+
+        missing_skills TEXT
+
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+create_table()
 
 # Upload Folder
 UPLOAD_FOLDER = "uploads"
@@ -32,7 +62,35 @@ def extract_text_from_pdf(pdf_path):
 # ---------------- FILE VALIDATION ----------------
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+def save_report(
+    job_role,
+    score,
+    matched_skills,
+    missing_skills
+):
 
+    conn = sqlite3.connect("resume_reports.db")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO reports(
+        job_role,
+        ats_score,
+        matched_skills,
+        missing_skills
+    )
+    VALUES (?, ?, ?, ?)
+    """,
+    (
+        job_role,
+        score,
+        ", ".join(matched_skills),
+        ", ".join(missing_skills)
+    ))
+
+    conn.commit()
+    conn.close()
 
 # ---------------- ATS SCORE FUNCTION ----------------
 def calculate_score(resume_text, selected_role):
@@ -40,32 +98,95 @@ def calculate_score(resume_text, selected_role):
     required_skills = job_roles[selected_role]
     text = resume_text.lower()
 
-    # SKILLS (50%)
     matched_skills = []
     missing_skills = []
 
+    # ---------- SKILLS (70%) ----------
+
     for skill in required_skills:
-        if skill.lower() in text:
+
+        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
+
+        if re.search(pattern, text):
             matched_skills.append(skill)
         else:
             missing_skills.append(skill)
 
-    skill_score = (len(matched_skills) / len(required_skills)) * 50
+    skill_score = (
+        len(matched_skills) / len(required_skills)
+    ) * 70
 
-    # PROJECTS (20%)
-    project_keywords = ["project", "built", "developed", "created", "designed"]
-    project_score = 20 if any(word in text for word in project_keywords) else 5
+    # ---------- PROJECTS (10%) ----------
 
-    # EDUCATION (10%)
-    education_keywords = ["btech", "b.tech", "bachelor", "degree", "university", "college"]
-    education_score = 10 if any(word in text for word in education_keywords) else 5
+    project_keywords = [
+        "project",
+        "built",
+        "developed",
+        "created",
+        "designed",
+        "implemented"
+    ]
 
-    # ACHIEVEMENTS (10%)
-    achievement_keywords = ["award", "certificate", "won", "hackathon", "rank"]
-    achievement_score = 10 if any(word in text for word in achievement_keywords) else 3
+    project_score = (
+        10 if any(word in text for word in project_keywords)
+        else 3
+    )
 
-    # FORMATTING (10%)
-    formatting_score = 10
+    # ---------- EDUCATION (5%) ----------
+
+    education_keywords = [
+        "btech",
+        "b.tech",
+        "bachelor",
+        "degree",
+        "university",
+        "college",
+        "engineering"
+    ]
+
+    education_score = (
+        5 if any(word in text for word in education_keywords)
+        else 2
+    )
+
+    # ---------- ACHIEVEMENTS (5%) ----------
+
+    achievement_keywords = [
+        "award",
+        "certificate",
+        "certification",
+        "won",
+        "hackathon",
+        "rank",
+        "achievement"
+    ]
+
+    achievement_score = (
+        5 if any(word in text for word in achievement_keywords)
+        else 0
+    )
+
+    # ---------- FORMATTING (10%) ----------
+
+    formatting_score = 0
+
+    # Email
+    if "@" in text:
+        formatting_score += 3
+
+    # Phone Number
+    if re.search(r'\d{10}', text):
+        formatting_score += 3
+
+    # LinkedIn
+    if "linkedin" in text:
+        formatting_score += 2
+
+    # GitHub
+    if "github" in text:
+        formatting_score += 2
+
+    # ---------- FINAL SCORE ----------
 
     total_score = round(
         skill_score +
@@ -97,7 +218,7 @@ def upload():
         if not selected_role:
             return "Please select a job role"
 
-        # File check
+        # File Check
         if "resume" not in request.files:
             return "No file selected"
 
@@ -114,22 +235,30 @@ def upload():
 
         file.save(file_path)
 
-        # Extract text
+        # Extract Resume Text
         try:
             resume_text = extract_text_from_pdf(file_path)
+
         except Exception as e:
             return f"Error reading PDF: {e}"
 
         if not resume_text.strip():
             return "Could not extract text from PDF"
 
-        # SCORE CALCULATION
+        # ATS Score Calculation
         score, matched_skills, missing_skills = calculate_score(
             resume_text,
             selected_role
         )
+        save_report(
+    selected_role,
+    score,
+    matched_skills,
+    missing_skills
+)
 
-        # 🔥 SEND TO RESULT PAGE
+
+        # Send Result Page
         return render_template(
             "result.html",
             score=score,
@@ -138,8 +267,80 @@ def upload():
             missing_skills=missing_skills
         )
 
-    return render_template("upload.html", job_roles=job_roles.keys())
+    return render_template(
+        "upload.html",
+        job_roles=job_roles.keys()
+    )
+@app.route("/download-report")
+def download_report():
 
+    conn = sqlite3.connect("resume_reports.db")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT *
+    FROM reports
+    ORDER BY id DESC
+    LIMIT 1
+    """)
+
+    report = cursor.fetchone()
+
+    conn.close()
+
+    pdf_name = "ATS_Report.pdf"
+
+    pdf = canvas.Canvas(pdf_name)
+
+    pdf.drawString(
+        100,
+        800,
+        "Smart Resume Analyzer"
+    )
+
+    pdf.drawString(
+        100,
+        770,
+        f"Role: {report[1]}"
+    )
+
+    pdf.drawString(
+        100,
+        740,
+        f"ATS Score: {report[2]}%"
+    )
+
+    pdf.drawString(
+        100,
+        700,
+        "Matched Skills:"
+    )
+
+    pdf.drawString(
+        120,
+        680,
+        report[3]
+    )
+
+    pdf.drawString(
+        100,
+        640,
+        "Missing Skills:"
+    )
+
+    pdf.drawString(
+        120,
+        620,
+        report[4]
+    )
+
+    pdf.save()
+
+    return send_file(
+        pdf_name,
+        as_attachment=True
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
