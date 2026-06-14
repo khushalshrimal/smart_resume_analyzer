@@ -16,21 +16,24 @@ def create_table():
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS reports (
+CREATE TABLE IF NOT EXISTS reports (
 
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        job_role TEXT,
+    file_name TEXT,
 
-        ats_score INTEGER,
+    predicted_role TEXT,
 
-        matched_skills TEXT,
+    ats_score INTEGER,
 
-        missing_skills TEXT
+    matched_skills TEXT,
 
-    )
-    """)
+    missing_skills TEXT,
 
+    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP
+
+)
+""")
     conn.commit()
     conn.close()
 
@@ -63,7 +66,8 @@ def extract_text_from_pdf(pdf_path):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 def save_report(
-    job_role,
+    file_name,
+    predicted_role,
     score,
     matched_skills,
     missing_skills
@@ -74,24 +78,53 @@ def save_report(
     cursor = conn.cursor()
 
     cursor.execute("""
-    INSERT INTO reports(
-        job_role,
-        ats_score,
-        matched_skills,
-        missing_skills
-    )
-    VALUES (?, ?, ?, ?)
-    """,
-    (
-        job_role,
-        score,
-        ", ".join(matched_skills),
-        ", ".join(missing_skills)
-    ))
+INSERT INTO reports(
+
+    file_name,
+    predicted_role,
+    ats_score,
+    matched_skills,
+    missing_skills
+
+)
+VALUES (?, ?, ?, ?, ?)
+""",
+(
+    file_name,
+    predicted_role,
+    score,
+    ", ".join(matched_skills),
+    ", ".join(missing_skills)
+))
 
     conn.commit()
     conn.close()
+#select role based on resume text
+def detect_role(resume_text):
 
+    text = resume_text.lower()
+
+    best_role = ""
+    best_score = 0
+
+    for role, skills in job_roles.items():
+
+        score = 0
+
+        for skill in skills:
+
+            if skill.lower() in text:
+                score += 1
+
+        if score > best_score:
+            best_score = score
+            best_role = role
+
+    confidence = round(
+        (best_score / len(job_roles[best_role])) * 100
+    )
+
+    return best_role, confidence
 # ---------------- ATS SCORE FUNCTION ----------------
 def calculate_score(resume_text, selected_role):
 
@@ -212,11 +245,7 @@ def upload():
 
         print("\nPOST Request Received\n")
 
-        # Job Role
-        selected_role = request.form.get("job_role")
 
-        if not selected_role:
-            return "Please select a job role"
 
         # File Check
         if "resume" not in request.files:
@@ -238,6 +267,9 @@ def upload():
         # Extract Resume Text
         try:
             resume_text = extract_text_from_pdf(file_path)
+            selected_role, confidence = detect_role(
+    resume_text
+)
 
         except Exception as e:
             return f"Error reading PDF: {e}"
@@ -251,6 +283,7 @@ def upload():
             selected_role
         )
         save_report(
+    filename,
     selected_role,
     score,
     matched_skills,
@@ -260,12 +293,13 @@ def upload():
 
         # Send Result Page
         return render_template(
-            "result.html",
-            score=score,
-            selected_role=selected_role,
-            matched_skills=matched_skills,
-            missing_skills=missing_skills
-        )
+    "result.html",
+    score=score,
+    selected_role=selected_role,
+    confidence=confidence,
+    matched_skills=matched_skills,
+    missing_skills=missing_skills
+)
 
     return render_template(
         "upload.html",
@@ -302,13 +336,13 @@ def download_report():
     pdf.drawString(
         100,
         770,
-        f"Role: {report[1]}"
+        f"Role: {report[2]}"
     )
 
     pdf.drawString(
         100,
         740,
-        f"ATS Score: {report[2]}%"
+        f"ATS Score: {report[3]}%"
     )
 
     pdf.drawString(
@@ -320,7 +354,7 @@ def download_report():
     pdf.drawString(
         120,
         680,
-        report[3]
+        report[4]
     )
 
     pdf.drawString(
@@ -332,7 +366,7 @@ def download_report():
     pdf.drawString(
         120,
         620,
-        report[4]
+        report[5]
     )
 
     pdf.save()
@@ -341,6 +375,28 @@ def download_report():
         pdf_name,
         as_attachment=True
     )
+@app.route("/history")
+def history():
 
+    conn = sqlite3.connect(
+        "resume_reports.db"
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT *
+    FROM reports
+    ORDER BY id DESC
+    """)
+
+    reports = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "history.html",
+        reports=reports
+    )
 if __name__ == "__main__":
     app.run(debug=True)
