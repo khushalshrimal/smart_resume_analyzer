@@ -10,7 +10,7 @@
 
 <body class="bg-slate-950 text-white min-h-screen">
 
-```
+
 <!-- Background Glow -->
 <div class="absolute top-0 left-0 w-96 h-96 bg-purple-600 blur-[160px] opacity-20 rounded-full"></div>
 <div class="absolute bottom-0 right-0 w-96 h-96 bg-blue-600 blur-[160px] opacity-20 rounded-full"></div>
@@ -77,51 +77,51 @@
 
                 <tbody>
 
-                    {% for report in reports %}
+    {% for report in reports %}
 
-                    <tr class="border-t border-white/10 hover:bg-white/5 transition">
+    <tr class="border-t border-white/10 hover:bg-white/5 transition">
 
-                        <td class="px-6 py-4">
-                            {{ report[0] }}
-                        </td>
+        <td class="px-6 py-4">
+            {{ report[0] }}
+        </td>
 
-                        <td class="px-6 py-4">
-                            {{ report[1] }}
-                        </td>
+        <td class="px-6 py-4">
+            {{ report[1] }}
+        </td>
 
-                        <td class="px-6 py-4 text-purple-300">
-                            {{ report[2] }}
-                        </td>
+        <td class="px-6 py-4 text-purple-300">
+            {{ report[2] }}
+        </td>
 
-                        <td class="px-6 py-4">
+        <td class="px-6 py-4">
 
-                            {% if report[3] >= 80 %}
-                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full">
-                                {{ report[3] }}%
-                            </span>
+            {% if report[3] >= 80 %}
+            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full">
+                {{ report[3] }}%
+            </span>
 
-                            {% elif report[3] >= 60 %}
-                            <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full">
-                                {{ report[3] }}%
-                            </span>
+            {% elif report[3] >= 60 %}
+            <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full">
+                {{ report[3] }}%
+            </span>
 
-                            {% else %}
-                            <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded-full">
-                                {{ report[3] }}%
-                            </span>
-                            {% endif %}
+            {% else %}
+            <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded-full">
+                {{ report[3] }}%
+            </span>
+            {% endif %}
 
-                        </td>
+        </td>
 
-                        <td class="px-6 py-4 text-gray-400">
-                            {{ report[6] }}
-                        </td>
+        <td class="px-6 py-4 text-gray-400">
+            {{ report[4] }}
+        </td>
 
-                    </tr>
+    </tr>
 
-                    {% endfor %}
+    {% endfor %}
 
-                </tbody>
+</tbody>
 
             </table>
 
@@ -155,17 +155,17 @@
 
         </a>
 
-        <a href="/"
+        <a href="/dashboard"
            class="px-6 py-3 bg-slate-800 border border-white/10 rounded-xl font-semibold hover:bg-slate-700 transition">
 
-            Back To Home
+            Back To Dashboard
 
         </a>
 
     </div>
 
 </div>
-```
+
 
 </body>
 </html>

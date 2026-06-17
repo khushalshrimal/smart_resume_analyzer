@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, session, url_for
 from PyPDF2 import PdfReader
 from job_roles import job_roles
 from werkzeug.utils import secure_filename
@@ -9,6 +9,78 @@ from flask import send_file
 from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
+app.secret_key = "smart_resume_analyzer_secret"
+@app.route("/")
+def home():
+    return render_template("landing.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+
+        conn = sqlite3.connect("resume_reports.db")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+        SELECT * FROM users
+        WHERE username=? AND password=?
+        """, (username, password))
+
+        user = cursor.fetchone()
+
+        conn.close()
+
+        if user:
+
+            session["user_id"] = user[0]
+            session["username"] = user[1]
+
+            return redirect(url_for("dashboard"))
+
+        return render_template("login.html", error="Invalid username or password")
+
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        email = request.form["email"]
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
+
+        if password != confirm_password:
+            return render_template("register.html", error="Passwords do not match")
+
+        conn = sqlite3.connect("resume_reports.db")
+        cursor = conn.cursor()
+
+        try:
+
+            cursor.execute("""
+            INSERT INTO users(username,email,password)
+            VALUES(?,?,?)
+            """, (username, email, password))
+
+            conn.commit()
+
+        except sqlite3.IntegrityError:
+
+            conn.close()
+            return render_template("register.html", error="Username or email already exists")
+
+        conn.close()
+
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
 def create_table():
 
     conn = sqlite3.connect("resume_reports.db")
@@ -19,6 +91,8 @@ def create_table():
 CREATE TABLE IF NOT EXISTS reports (
 
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    user_id INTEGER,
 
     file_name TEXT,
 
@@ -34,10 +108,30 @@ CREATE TABLE IF NOT EXISTS reports (
 
 )
 """)
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    username TEXT UNIQUE,
+
+    email TEXT UNIQUE,
+
+    password TEXT
+
+)
+""")
+    cursor.execute("PRAGMA table_info(reports)")
+    report_columns = [column[1] for column in cursor.fetchall()]
+
+    if "user_id" not in report_columns:
+        cursor.execute("ALTER TABLE reports ADD COLUMN user_id INTEGER")
+
     conn.commit()
     conn.close()
 
 create_table()
+
 
 # Upload Folder
 UPLOAD_FOLDER = "uploads"
@@ -66,6 +160,7 @@ def extract_text_from_pdf(pdf_path):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 def save_report(
+    user_id,
     file_name,
     predicted_role,
     score,
@@ -74,31 +169,33 @@ def save_report(
 ):
 
     conn = sqlite3.connect("resume_reports.db")
-
     cursor = conn.cursor()
 
     cursor.execute("""
-INSERT INTO reports(
+    INSERT INTO reports(
 
-    file_name,
-    predicted_role,
-    ats_score,
-    matched_skills,
-    missing_skills
+        user_id,
+        file_name,
+        predicted_role,
+        ats_score,
+        matched_skills,
+        missing_skills
 
-)
-VALUES (?, ?, ?, ?, ?)
-""",
-(
-    file_name,
-    predicted_role,
-    score,
-    ", ".join(matched_skills),
-    ", ".join(missing_skills)
-))
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+    """,
+    (
+        user_id,
+        file_name,
+        predicted_role,
+        score,
+        ", ".join(matched_skills),
+        ", ".join(missing_skills)
+    ))
 
     conn.commit()
     conn.close()
+    
 #select role based on resume text
 def detect_role(resume_text):
 
@@ -120,9 +217,10 @@ def detect_role(resume_text):
             best_score = score
             best_role = role
 
-    confidence = round(
-        (best_score / len(job_roles[best_role])) * 100
-    )
+    if not best_role:
+        best_role = "Software Engineer"
+
+    confidence = round((best_score / len(job_roles[best_role])) * 100)
 
     return best_role, confidence
 # ---------------- ATS SCORE FUNCTION ----------------
@@ -233,95 +331,101 @@ def calculate_score(resume_text, selected_role):
 
 
 # ---------------- ROUTES ----------------
-@app.route("/")
-def home():
-    return render_template("landing.html")
-
-
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
 
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
     if request.method == "POST":
-
-        print("\nPOST Request Received\n")
-
-
 
         # File Check
         if "resume" not in request.files:
-            return "No file selected"
+            return render_template("upload.html", error="No file selected")
 
         file = request.files["resume"]
 
         if file.filename == "":
-            return "Please select a file"
+            return render_template("upload.html", error="Please select a file")
 
         if not allowed_file(file.filename):
-            return "Only PDF files allowed"
+            return render_template("upload.html", error="Only PDF files are allowed")
 
         filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file_path = os.path.join(
+            app.config["UPLOAD_FOLDER"],
+            filename
+        )
 
         file.save(file_path)
 
         # Extract Resume Text
         try:
             resume_text = extract_text_from_pdf(file_path)
+
             selected_role, confidence = detect_role(
-    resume_text
-)
+                resume_text
+            )
 
         except Exception as e:
-            return f"Error reading PDF: {e}"
+            return render_template("upload.html", error=f"Error reading PDF: {e}")
 
         if not resume_text.strip():
-            return "Could not extract text from PDF"
+            return render_template("upload.html", error="Could not extract text from PDF")
 
-        # ATS Score Calculation
+        # ATS Score
         score, matched_skills, missing_skills = calculate_score(
             resume_text,
             selected_role
         )
+
         save_report(
-    filename,
-    selected_role,
-    score,
-    matched_skills,
-    missing_skills
-)
-
-
-        # Send Result Page
+            session["user_id"],
+            filename,
+            selected_role,
+            score,
+            matched_skills,
+            missing_skills
+        )
         return render_template(
-    "result.html",
-    score=score,
-    selected_role=selected_role,
-    confidence=confidence,
-    matched_skills=matched_skills,
-    missing_skills=missing_skills
-)
+            "result.html",
+            score=score,
+            selected_role=selected_role,
+            confidence=confidence,
+            matched_skills=matched_skills,
+            missing_skills=missing_skills
+        )
 
     return render_template(
         "upload.html",
         job_roles=job_roles.keys()
     )
+
+
 @app.route("/download-report")
 def download_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
 
     conn = sqlite3.connect("resume_reports.db")
 
     cursor = conn.cursor()
 
     cursor.execute("""
-    SELECT *
+    SELECT file_name, predicted_role, ats_score, matched_skills, missing_skills
     FROM reports
+    WHERE user_id = ?
     ORDER BY id DESC
     LIMIT 1
-    """)
+    """, (session["user_id"],))
 
     report = cursor.fetchone()
 
     conn.close()
+
+    if not report:
+        return redirect(url_for("history"))
 
     pdf_name = "ATS_Report.pdf"
 
@@ -336,37 +440,43 @@ def download_report():
     pdf.drawString(
         100,
         770,
-        f"Role: {report[2]}"
+        f"File: {report[0]}"
     )
 
     pdf.drawString(
         100,
         740,
-        f"ATS Score: {report[3]}%"
+        f"Role: {report[1]}"
     )
 
     pdf.drawString(
         100,
-        700,
+        710,
+        f"ATS Score: {report[2]}%"
+    )
+
+    pdf.drawString(
+        100,
+        670,
         "Matched Skills:"
     )
 
     pdf.drawString(
         120,
-        680,
-        report[4]
+        650,
+        report[3]
     )
 
     pdf.drawString(
         100,
-        640,
+        610,
         "Missing Skills:"
     )
 
     pdf.drawString(
         120,
-        620,
-        report[5]
+        590,
+        report[4]
     )
 
     pdf.save()
@@ -378,17 +488,19 @@ def download_report():
 @app.route("/history")
 def history():
 
-    conn = sqlite3.connect(
-        "resume_reports.db"
-    )
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = sqlite3.connect("resume_reports.db")
 
     cursor = conn.cursor()
 
     cursor.execute("""
-    SELECT *
+    SELECT id, file_name, predicted_role, ats_score, upload_date
     FROM reports
+    WHERE user_id = ?
     ORDER BY id DESC
-    """)
+    """, (session["user_id"],))
 
     reports = cursor.fetchall()
 
@@ -398,5 +510,73 @@ def history():
         "history.html",
         reports=reports
     )
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect("/")
+
+@app.route("/dashboard")
+def dashboard():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = sqlite3.connect("resume_reports.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM reports WHERE user_id=?",
+        (session["user_id"],)
+    )
+    total_resumes = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT AVG(ats_score) FROM reports WHERE user_id=?",
+        (session["user_id"],)
+    )
+    avg_score = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT MAX(ats_score) FROM reports WHERE user_id=?",
+        (session["user_id"],)
+    )
+    highest_score = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT predicted_role, COUNT(*)
+        FROM reports
+        WHERE user_id=?
+        GROUP BY predicted_role
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+    """, (session["user_id"],))
+
+    role_data = cursor.fetchone()
+    most_common_role = role_data[0] if role_data else "N/A"
+
+    cursor.execute("""
+        SELECT file_name, predicted_role, ats_score
+        FROM reports
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 5
+    """, (session["user_id"],))
+
+    recent_reports = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "dashboard.html",
+        total_resumes=total_resumes,
+        avg_score=round(avg_score, 1) if avg_score else 0,
+        highest_score=highest_score if highest_score else 0,
+        most_common_role=most_common_role,
+        recent_reports=recent_reports
+    )
+ 
 if __name__ == "__main__":
     app.run(debug=True)
